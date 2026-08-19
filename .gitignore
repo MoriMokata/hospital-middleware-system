@@ -1,8 +1,8 @@
-# Binaries
+# Binaries (anchored to repo root only — do NOT match cmd/api/, etc.)
 /bin/
 /dist/
-hospital-middleware-system
-api
+/hospital-middleware-system
+/api
 
 # Go
 *.test
@@ -22,6 +22,6 @@ vendor/
 .DS_Store
 Thumbs.db
 
-# Claude / internal planning docs (confidential, not for repo)
-CLAUDE.md
+# Kept local-only per project decision — not tracked in git
 /docs/
+/CLAUDE.md

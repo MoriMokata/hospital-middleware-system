@@ -8,13 +8,30 @@ Go · Gin · Docker · Nginx · Postgres
 
 ## Status
 
-🚧 In progress. Currently: **Task 01 — initial project skeleton** (no HTTP server or business logic wired up yet; see `cmd/api/main.go` and the placeholder packages under `internal/`).
+🚧 In progress. Currently: **Task 02 — docker compose skeleton** (nginx + api + postgres stack runs, `/health` is wired up end to end; no business logic yet).
 
 ## Running locally
 
-Docker Compose setup (nginx + api + postgres) is added in Task 02. Until then:
+### With Docker Compose (nginx + api + postgres)
 
 ```sh
-go build ./...
+docker compose up --build
+curl http://localhost:8080/health
+# {"status":"ok"}
+```
+
+Postgres and the Go service are only reachable through nginx — nothing else is published to the host.
+
+### Without Docker
+
+```sh
+go mod download
 go run ./cmd/api
+curl http://localhost:8080/health
+```
+
+### Tests
+
+```sh
+go test ./...
 ```
