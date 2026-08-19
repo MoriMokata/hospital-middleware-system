@@ -1,0 +1,27 @@
+# Binaries
+/bin/
+/dist/
+hospital-middleware-system
+api
+
+# Go
+*.test
+*.out
+vendor/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# IDE
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude / internal planning docs (confidential, not for repo)
+CLAUDE.md
+/docs/
