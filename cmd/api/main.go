@@ -1,31 +1,49 @@
 // Command api is the entry point for the Hospital Middleware API service.
-//
-// Task 02 wires up the minimal HTTP server and a /health endpoint so the
-// docker-compose stack (nginx + api + postgres) can be brought up and
-// smoke-tested end to end. Routing for the real business endpoints
-// (/staff/create, /staff/login, /patient/search) is added in later tasks.
 package main
 
 import (
+	"context"
+	"database/sql"
 	"log"
-	"os"
 
 	"github.com/gin-gonic/gin"
+	_ "github.com/jackc/pgx/v5/stdlib"
 
+	"github.com/MoriMokata/hospital-middleware-system/internal/config"
 	"github.com/MoriMokata/hospital-middleware-system/internal/handler"
+	"github.com/MoriMokata/hospital-middleware-system/internal/repository"
+	"github.com/MoriMokata/hospital-middleware-system/internal/service"
+	"github.com/MoriMokata/hospital-middleware-system/migrations"
 )
 
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8080"
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("load config: %v", err)
 	}
+
+	db, err := sql.Open("pgx", cfg.DBDSN)
+	if err != nil {
+		log.Fatalf("open db: %v", err)
+	}
+	defer db.Close()
+
+	if err := migrations.Up(context.Background(), db); err != nil {
+		log.Fatalf("migrate up: %v", err)
+	}
+
+	hospitalRepo := repository.NewPostgresHospitalRepository(db)
+	staffRepo := repository.NewPostgresStaffRepository(db)
+
+	staffService := service.NewStaffService(hospitalRepo, staffRepo)
+	staffHandler := handler.NewStaffHandler(staffService)
 
 	router := gin.Default()
 	router.GET("/health", handler.Health)
+	router.POST("/staff/create", staffHandler.Create)
 
-	log.Printf("hospital-middleware-system listening on :%s", port)
-	if err := router.Run(":" + port); err != nil {
+	log.Printf("hospital-middleware-system listening on :%s", cfg.Port)
+	if err := router.Run(":" + cfg.Port); err != nil {
 		log.Fatalf("server failed: %v", err)
 	}
 }
