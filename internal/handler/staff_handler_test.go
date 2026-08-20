@@ -56,7 +56,7 @@ func newTestStaffHandler() *StaffHandler {
 	hospital := domain.Hospital{ID: uuid.New(), Slug: "hospital-a", Name: "Hospital A"}
 	hospitals := &fakeHospitalRepo{bySlug: map[string]domain.Hospital{"hospital-a": hospital}}
 	staff := &fakeStaffRepo{byKey: map[string]domain.Staff{}}
-	return NewStaffHandler(service.NewStaffService(hospitals, staff))
+	return NewStaffHandler(service.NewStaffService(hospitals, staff, "test-secret", time.Hour))
 }
 
 func performCreateStaff(h *StaffHandler, body string) *httptest.ResponseRecorder {
@@ -65,6 +65,18 @@ func performCreateStaff(h *StaffHandler, body string) *httptest.ResponseRecorder
 	router.POST("/staff/create", h.Create)
 
 	req := httptest.NewRequest(http.MethodPost, "/staff/create", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	return rec
+}
+
+func performLogin(h *StaffHandler, body string) *httptest.ResponseRecorder {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.POST("/staff/login", h.Login)
+
+	req := httptest.NewRequest(http.MethodPost, "/staff/login", bytes.NewBufferString(body))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
@@ -134,6 +146,65 @@ func TestStaffHandler_Create_PasswordTooShort(t *testing.T) {
 		t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
 	}
 	assertErrorCode(t, rec, "VALIDATION_ERROR")
+}
+
+func TestStaffHandler_Login_Success(t *testing.T) {
+	h := newTestStaffHandler()
+	performCreateStaff(h, `{"username":"somchai.p","password":"P@ssw0rd123","hospital":"hospital-a"}`)
+
+	rec := performLogin(h, `{"username":"somchai.p","password":"P@ssw0rd123","hospital":"hospital-a"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var body struct {
+		AccessToken string `json:"access_token"`
+		TokenType   string `json:"token_type"`
+		ExpiresIn   int    `json:"expires_in"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("invalid JSON response: %v", err)
+	}
+	if body.AccessToken == "" {
+		t.Error("response missing access_token")
+	}
+	if body.TokenType != "Bearer" {
+		t.Errorf("token_type = %q, want Bearer", body.TokenType)
+	}
+	if body.ExpiresIn != int(time.Hour.Seconds()) {
+		t.Errorf("expires_in = %d, want %d", body.ExpiresIn, int(time.Hour.Seconds()))
+	}
+}
+
+func TestStaffHandler_Login_WrongPassword(t *testing.T) {
+	h := newTestStaffHandler()
+	performCreateStaff(h, `{"username":"somchai.p","password":"P@ssw0rd123","hospital":"hospital-a"}`)
+
+	rec := performLogin(h, `{"username":"somchai.p","password":"wrong-password","hospital":"hospital-a"}`)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusUnauthorized, rec.Body.String())
+	}
+	assertErrorCode(t, rec, "INVALID_CREDENTIALS")
+}
+
+func TestStaffHandler_Login_UnknownUsername(t *testing.T) {
+	h := newTestStaffHandler()
+
+	rec := performLogin(h, `{"username":"nobody","password":"P@ssw0rd123","hospital":"hospital-a"}`)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusUnauthorized, rec.Body.String())
+	}
+	assertErrorCode(t, rec, "INVALID_CREDENTIALS")
+}
+
+func TestStaffHandler_Login_HospitalNotFound(t *testing.T) {
+	h := newTestStaffHandler()
+
+	rec := performLogin(h, `{"username":"somchai.p","password":"P@ssw0rd123","hospital":"no-such-hospital"}`)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusNotFound, rec.Body.String())
+	}
+	assertErrorCode(t, rec, "HOSPITAL_NOT_FOUND")
 }
 
 func assertErrorCode(t *testing.T, rec *httptest.ResponseRecorder, wantCode string) {

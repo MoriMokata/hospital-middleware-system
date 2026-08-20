@@ -53,6 +53,37 @@ func (h *StaffHandler) Create(c *gin.Context) {
 	})
 }
 
+type loginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Hospital string `json:"hospital"`
+}
+
+// Login handles POST /staff/login (docs/api-spec.md#post-stafflogin).
+func (h *StaffHandler) Login(c *gin.Context) {
+	var req loginRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, pkg.NewErrorEnvelope("VALIDATION_ERROR", "invalid request body"))
+		return
+	}
+
+	out, err := h.Staff.Login(c.Request.Context(), service.LoginInput{
+		Username: req.Username,
+		Password: req.Password,
+		Hospital: req.Hospital,
+	})
+	if err != nil {
+		writeStaffError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"access_token": out.AccessToken,
+		"token_type":   "Bearer",
+		"expires_in":   out.ExpiresIn,
+	})
+}
+
 func writeStaffError(c *gin.Context, err error) {
 	var verr *service.ValidationError
 	switch {

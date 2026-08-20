@@ -22,6 +22,9 @@ vendor/
 .DS_Store
 Thumbs.db
 
+# Local Go build tmp dir (Application Control policy blocks the default OS temp dir)
+/.gotmp/
+
 # Kept local-only per project decision — not tracked in git
 /docs/
 /CLAUDE.md

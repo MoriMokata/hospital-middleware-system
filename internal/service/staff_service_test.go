@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/MoriMokata/hospital-middleware-system/internal/domain"
+	"github.com/MoriMokata/hospital-middleware-system/internal/pkg"
 	"github.com/MoriMokata/hospital-middleware-system/internal/repository"
 )
 
@@ -56,7 +57,7 @@ func newTestStaffService() (*StaffService, domain.Hospital) {
 	hospital := domain.Hospital{ID: uuid.New(), Slug: "hospital-a", Name: "Hospital A"}
 	hospitals := &fakeHospitalRepo{bySlug: map[string]domain.Hospital{"hospital-a": hospital}}
 	staff := &fakeStaffRepo{byHospitalAndUsername: map[string]domain.Staff{}}
-	return NewStaffService(hospitals, staff), hospital
+	return NewStaffService(hospitals, staff, "test-secret", time.Hour), hospital
 }
 
 func TestStaffService_CreateStaff_Success(t *testing.T) {
@@ -122,5 +123,63 @@ func TestStaffService_CreateStaff_ValidationErrors(t *testing.T) {
 				t.Fatalf("CreateStaff() error = %v, want *ValidationError", err)
 			}
 		})
+	}
+}
+
+func TestStaffService_Login_Success(t *testing.T) {
+	svc, _ := newTestStaffService()
+	ctx := context.Background()
+	if _, err := svc.CreateStaff(ctx, CreateStaffInput{Username: "somchai.p", Password: "P@ssw0rd123", Hospital: "hospital-a"}); err != nil {
+		t.Fatalf("CreateStaff() error = %v", err)
+	}
+
+	out, err := svc.Login(ctx, LoginInput{Username: "somchai.p", Password: "P@ssw0rd123", Hospital: "hospital-a"})
+	if err != nil {
+		t.Fatalf("Login() error = %v", err)
+	}
+	if out.AccessToken == "" {
+		t.Error("Login() did not return an access_token")
+	}
+	if out.ExpiresIn != int(time.Hour.Seconds()) {
+		t.Errorf("Login() ExpiresIn = %d, want %d", out.ExpiresIn, int(time.Hour.Seconds()))
+	}
+
+	claims, err := pkg.ParseToken(svc.JWTSecret, out.AccessToken)
+	if err != nil {
+		t.Fatalf("ParseToken() error = %v", err)
+	}
+	if claims.Username != "somchai.p" {
+		t.Errorf("claims.Username = %q, want somchai.p", claims.Username)
+	}
+}
+
+func TestStaffService_Login_WrongPassword(t *testing.T) {
+	svc, _ := newTestStaffService()
+	ctx := context.Background()
+	if _, err := svc.CreateStaff(ctx, CreateStaffInput{Username: "somchai.p", Password: "P@ssw0rd123", Hospital: "hospital-a"}); err != nil {
+		t.Fatalf("CreateStaff() error = %v", err)
+	}
+
+	_, err := svc.Login(ctx, LoginInput{Username: "somchai.p", Password: "wrong-password", Hospital: "hospital-a"})
+	if err != ErrInvalidCredentials {
+		t.Fatalf("Login() error = %v, want ErrInvalidCredentials", err)
+	}
+}
+
+func TestStaffService_Login_UnknownUsername(t *testing.T) {
+	svc, _ := newTestStaffService()
+
+	_, err := svc.Login(context.Background(), LoginInput{Username: "nobody", Password: "P@ssw0rd123", Hospital: "hospital-a"})
+	if err != ErrInvalidCredentials {
+		t.Fatalf("Login() error = %v, want ErrInvalidCredentials", err)
+	}
+}
+
+func TestStaffService_Login_HospitalNotFound(t *testing.T) {
+	svc, _ := newTestStaffService()
+
+	_, err := svc.Login(context.Background(), LoginInput{Username: "somchai.p", Password: "P@ssw0rd123", Hospital: "no-such-hospital"})
+	if err != ErrHospitalNotFound {
+		t.Fatalf("Login() error = %v, want ErrHospitalNotFound", err)
 	}
 }

@@ -35,12 +35,13 @@ func main() {
 	hospitalRepo := repository.NewPostgresHospitalRepository(db)
 	staffRepo := repository.NewPostgresStaffRepository(db)
 
-	staffService := service.NewStaffService(hospitalRepo, staffRepo)
+	staffService := service.NewStaffService(hospitalRepo, staffRepo, cfg.JWTSecret, cfg.JWTExpiry)
 	staffHandler := handler.NewStaffHandler(staffService)
 
 	router := gin.Default()
 	router.GET("/health", handler.Health)
 	router.POST("/staff/create", staffHandler.Create)
+	router.POST("/staff/login", staffHandler.Login)
 
 	log.Printf("hospital-middleware-system listening on :%s", cfg.Port)
 	if err := router.Run(":" + cfg.Port); err != nil {
