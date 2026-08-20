@@ -53,3 +53,46 @@ func TestPostgresHospitalRepository_FindBySlug_NotFound(t *testing.T) {
 		t.Fatalf("FindBySlug() error = %v, want ErrNotFound", err)
 	}
 }
+
+func TestPostgresHospitalRepository_FindByID_Found(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	id := uuid.New()
+	now := time.Now()
+	mock.ExpectQuery("SELECT id, name, slug, his_adapter_type, his_base_url").
+		WithArgs(id).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "slug", "his_adapter_type", "his_base_url", "created_at", "updated_at"}).
+			AddRow(id.String(), "Hospital A", "hospital-a", "hospital_a", "https://hospital-a.api.co.th", now, now))
+
+	repo := NewPostgresHospitalRepository(db)
+	h, err := repo.FindByID(context.Background(), id)
+	if err != nil {
+		t.Fatalf("FindByID() error = %v", err)
+	}
+	if h.ID != id || h.Slug != "hospital-a" {
+		t.Errorf("FindByID() = %+v", h)
+	}
+}
+
+func TestPostgresHospitalRepository_FindByID_NotFound(t *testing.T) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("sqlmock.New: %v", err)
+	}
+	defer db.Close()
+
+	id := uuid.New()
+	mock.ExpectQuery("SELECT id, name, slug, his_adapter_type, his_base_url").
+		WithArgs(id).
+		WillReturnRows(sqlmock.NewRows([]string{"id", "name", "slug", "his_adapter_type", "his_base_url", "created_at", "updated_at"}))
+
+	repo := NewPostgresHospitalRepository(db)
+	_, err = repo.FindByID(context.Background(), id)
+	if err != ErrNotFound {
+		t.Fatalf("FindByID() error = %v, want ErrNotFound", err)
+	}
+}

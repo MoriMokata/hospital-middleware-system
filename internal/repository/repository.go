@@ -19,9 +19,12 @@ var ErrConflict = errors.New("repository: conflict")
 
 // HospitalRepository looks up hospitals by their public slug (e.g.
 // "hospital-a"), the identifier clients pass as `hospital` on
-// /staff/create and /staff/login.
+// /staff/create and /staff/login, or by id (used to resolve the caller's
+// own hospital — and its HIS adapter type/base URL — from the JWT's
+// hospital_id claim during /patient/search).
 type HospitalRepository interface {
 	FindBySlug(ctx context.Context, slug string) (domain.Hospital, error)
+	FindByID(ctx context.Context, id uuid.UUID) (domain.Hospital, error)
 }
 
 // StaffRepository creates and looks up staff. Username uniqueness is

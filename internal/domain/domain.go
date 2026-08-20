@@ -36,26 +36,26 @@ type Staff struct {
 // in the DB. HospitalID is the data-isolation boundary: every repository
 // query against patients must filter on it.
 type Patient struct {
-	ID            uuid.UUID
-	HospitalID    uuid.UUID
-	PatientHN     *string
-	NationalID    *string
-	PassportID    *string
-	FirstName     *string
-	MiddleName    *string
-	LastName      *string
-	FirstNameTH   *string
-	MiddleNameTH  *string
-	LastNameTH    *string
-	FirstNameEN   *string
-	MiddleNameEN  *string
-	LastNameEN    *string
-	DateOfBirth   *time.Time
-	PhoneNumber   *string
-	Email         *string
-	Gender        *string
-	RawSource     json.RawMessage
-	SyncedAt      *time.Time
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+	ID           uuid.UUID
+	HospitalID   uuid.UUID
+	PatientHN    *string
+	NationalID   *string
+	PassportID   *string
+	FirstName    *string
+	MiddleName   *string
+	LastName     *string
+	FirstNameTH  *string
+	MiddleNameTH *string
+	LastNameTH   *string
+	FirstNameEN  *string
+	MiddleNameEN *string
+	LastNameEN   *string
+	DateOfBirth  *time.Time
+	PhoneNumber  *string
+	Email        *string
+	Gender       *string
+	RawSource    json.RawMessage
+	SyncedAt     *time.Time
+	CreatedAt    time.Time
+	UpdatedAt    time.Time
 }

@@ -29,6 +29,15 @@ func (f *fakeHospitalRepo) FindBySlug(_ context.Context, slug string) (domain.Ho
 	return h, nil
 }
 
+func (f *fakeHospitalRepo) FindByID(_ context.Context, id uuid.UUID) (domain.Hospital, error) {
+	for _, h := range f.bySlug {
+		if h.ID == id {
+			return h, nil
+		}
+	}
+	return domain.Hospital{}, repository.ErrNotFound
+}
+
 type fakeStaffRepo struct {
 	byKey map[string]domain.Staff
 }
