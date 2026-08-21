@@ -11,7 +11,7 @@ required — see the note in `docs/design.md`.
 ## Running
 
 ```sh
-DB_DSN="postgres://postgres:postgres@localhost:5432/hospital_middleware?sslmode=disable" make migrate
+DB_DSN="postgres://postgres:postgres@localhost:5432/hospital_middleware?sslmode=disable" go run ./cmd/migrate
 ```
 
-Inside docker-compose, `DB_DSN` is already set on the `api` service; the API applies pending migrations automatically on startup (wired into `cmd/api/main.go` once the DB connection is introduced in Task 05).
+Inside docker-compose, `DB_DSN` is already set on the `api` service; the API also applies pending migrations automatically on startup (see `migrations.Up` called from `cmd/api/main.go`).
