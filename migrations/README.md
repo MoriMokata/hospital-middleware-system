@@ -1,3 +1,17 @@
 # Migrations
 
-SQL migration files for the `hospitals`, `staff`, and `patients` tables are added in **Task 03**.
+Plain SQL files applied in filename order by the embedded runner in
+[`migrations.go`](./migrations.go) (tracked in a `schema_migrations` table,
+each file applied at most once). No external migration tool/CLI is
+required — see the note in `docs/design.md`.
+
+- `0001_init_schema.sql` — `hospitals`, `staff`, `patients` tables + indexes (matches `docs/er-diagram.md`)
+- `0002_seed_hospital_a.sql` — seeds the `hospital-a` row used by the Hospital A HIS adapter
+
+## Running
+
+```sh
+DB_DSN="postgres://postgres:postgres@localhost:5432/hospital_middleware?sslmode=disable" go run ./cmd/migrate
+```
+
+Inside docker-compose, `DB_DSN` is already set on the `api` service; the API also applies pending migrations automatically on startup (see `migrations.Up` called from `cmd/api/main.go`).

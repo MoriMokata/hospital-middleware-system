@@ -8,7 +8,7 @@ Go · Gin · Docker · Nginx · Postgres
 
 ## Status
 
-🚧 In progress. Currently: **Task 02 — docker compose skeleton** (nginx + api + postgres stack runs, `/health` is wired up end to end; no business logic yet).
+🚧 In progress. Currently: **Task 14 — finalize documentation and deliverables** (`/staff/create`, `/staff/login`, `/patient/search`, and `/health` are all wired up end to end behind nginx, backed by Postgres, with a Hospital A HIS adapter; verified against a real `docker compose up` stack).
 
 ## Running locally
 
@@ -22,6 +22,13 @@ curl http://localhost:8080/health
 
 Postgres and the Go service are only reachable through nginx — nothing else is published to the host.
 
+### API docs (Swagger UI)
+
+Once the stack is up: http://localhost:8080/swagger — an interactive Swagger UI (loaded from a
+CDN, so it needs internet in the browser) served from the hand-maintained spec at
+[`openapi/openapi.yaml`](./openapi/openapi.yaml). The raw spec is also served at
+`/openapi.yaml`. Not part of the assignment's required scope — added on request.
+
 ### Without Docker
 
 ```sh
@@ -34,4 +41,25 @@ curl http://localhost:8080/health
 
 ```sh
 go test ./...
+```
+
+### Example requests
+
+```sh
+# create a staff account
+curl -X POST http://localhost:8080/staff/create \
+  -H "Content-Type: application/json" \
+  -d '{"username":"somchai.p","password":"P@ssw0rd123","hospital":"hospital-a"}'
+
+# log in and grab an access token
+TOKEN=$(curl -s -X POST http://localhost:8080/staff/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"somchai.p","password":"P@ssw0rd123","hospital":"hospital-a"}' \
+  | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+
+# search patients (always scoped to the caller's own hospital)
+curl -X POST http://localhost:8080/patient/search \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{"national_id":"1234567890123"}'
 ```

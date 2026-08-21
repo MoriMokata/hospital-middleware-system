@@ -6,9 +6,11 @@ services:
     volumes:
       - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
-      - api
+      api:
+        condition: service_started
     networks:
       - internal
+    restart: on-failure
 
   api:
     build:
@@ -20,9 +22,11 @@ services:
       JWT_SECRET: "changeme-in-production"
       HOSPITAL_A_BASE_URL: "https://hospital-a.api.co.th"
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - internal
+    restart: on-failure
 
   postgres:
     image: postgres:16-alpine
@@ -34,6 +38,11 @@ services:
       - pgdata:/var/lib/postgresql/data
     networks:
       - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
 
 networks:
   internal:

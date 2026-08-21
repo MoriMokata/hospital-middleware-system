@@ -22,6 +22,12 @@ vendor/
 .DS_Store
 Thumbs.db
 
+# Local Go build tmp dir (Application Control policy blocks the default OS temp dir)
+/.gotmp/
+
+# Local-dev-only docker-compose override (e.g. exposing Postgres to the host for DBeaver/psql)
+/docker-compose.override.yml
+
 # Kept local-only per project decision — not tracked in git
 /docs/
 /CLAUDE.md
