@@ -8,7 +8,7 @@ Go · Gin · Docker · Nginx · Postgres
 
 ## Status
 
-🚧 In progress. Currently: **Task 11 — patient search api** (`/staff/create`, `/staff/login`, `/patient/search`, and `/health` are all wired up end to end behind nginx, backed by Postgres, with a Hospital A HIS adapter).
+🚧 In progress. Currently: **Task 14 — finalize documentation and deliverables** (`/staff/create`, `/staff/login`, `/patient/search`, and `/health` are all wired up end to end behind nginx, backed by Postgres, with a Hospital A HIS adapter; verified against a real `docker compose up` stack).
 
 ## Running locally
 
