@@ -18,6 +18,7 @@ import (
 	"github.com/MoriMokata/hospital-middleware-system/internal/repository"
 	"github.com/MoriMokata/hospital-middleware-system/internal/service"
 	"github.com/MoriMokata/hospital-middleware-system/migrations"
+	"github.com/MoriMokata/hospital-middleware-system/openapi"
 )
 
 func main() {
@@ -59,6 +60,8 @@ func main() {
 	router.POST("/staff/create", staffHandler.Create)
 	router.POST("/staff/login", staffHandler.Login)
 	router.POST("/patient/search", middleware.Auth(cfg.JWTSecret), patientHandler.Search)
+	router.GET("/openapi.yaml", handler.OpenAPISpec(openapi.OpenAPISpec))
+	router.GET("/swagger", handler.SwaggerUI)
 
 	log.Printf("hospital-middleware-system listening on :%s", cfg.Port)
 	if err := router.Run(":" + cfg.Port); err != nil {

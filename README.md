@@ -22,6 +22,13 @@ curl http://localhost:8080/health
 
 Postgres and the Go service are only reachable through nginx — nothing else is published to the host.
 
+### API docs (Swagger UI)
+
+Once the stack is up: http://localhost:8080/swagger — an interactive Swagger UI (loaded from a
+CDN, so it needs internet in the browser) served from the hand-maintained spec at
+[`openapi/openapi.yaml`](./openapi/openapi.yaml). The raw spec is also served at
+`/openapi.yaml`. Not part of the assignment's required scope — added on request.
+
 ### Without Docker
 
 ```sh

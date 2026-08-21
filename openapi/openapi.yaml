@@ -1,0 +1,331 @@
+openapi: 3.0.3
+info:
+  title: Hospital Middleware API
+  description: >
+    Lets authenticated hospital staff search patient information, backed by
+    each hospital's own Hospital Information System (HIS) — normalized
+    behind a common data model. See docs/api-spec.md in the repo for the
+    full design rationale.
+  version: "1.0.0"
+servers:
+  - url: http://localhost:8080
+    description: Local docker-compose (nginx → api → postgres)
+
+tags:
+  - name: health
+  - name: staff
+  - name: patient
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Liveness check
+      responses:
+        "200":
+          description: Service is up
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /staff/create:
+    post:
+      tags: [staff]
+      summary: Create a new hospital staff member
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffCreateRequest"
+      responses:
+        "201":
+          description: Staff created (password/hash never returned)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffCreateResponse"
+        "400":
+          description: Missing/invalid field, or password shorter than 8 characters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: { code: VALIDATION_ERROR, message: "password must be at least 8 characters" }
+        "404":
+          description: Unknown hospital slug
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: { code: HOSPITAL_NOT_FOUND, message: "hospital not found" }
+        "409":
+          description: Username already exists within that hospital
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: { code: USERNAME_TAKEN, message: "username already exists for this hospital" }
+
+  /staff/login:
+    post:
+      tags: [staff]
+      summary: Authenticate a staff member and issue a JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffLoginRequest"
+      responses:
+        "200":
+          description: Login succeeded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffLoginResponse"
+        "400":
+          description: Missing field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Wrong username/password, or hospital mismatch
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: { code: INVALID_CREDENTIALS, message: "username or password is incorrect" }
+        "404":
+          description: Unknown hospital slug
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /patient/search:
+    post:
+      tags: [patient]
+      summary: Search patients belonging to the caller's own hospital
+      description: >
+        Results are always scoped to the caller's hospital (from the JWT),
+        regardless of any hospital-related value that might be supplied.
+        If national_id/passport_id is given, the middleware first does a
+        live lookup against the caller's hospital HIS, upserts the result,
+        then searches the local DB with all supplied filters.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatientSearchRequest"
+      responses:
+        "200":
+          description: Matching patients within the caller's hospital
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PatientSearchResponse"
+        "400":
+          description: Malformed field (e.g. bad date_of_birth format)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: { code: VALIDATION_ERROR, message: "date_of_birth must be in YYYY-MM-DD format" }
+        "401":
+          description: Missing/invalid/expired JWT
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                error: { code: UNAUTHORIZED, message: "missing or invalid Authorization header" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token returned by POST /staff/login (access_token)
+
+  schemas:
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: VALIDATION_ERROR
+            message:
+              type: string
+              example: "username is required"
+
+    StaffCreateRequest:
+      type: object
+      required: [username, password, hospital]
+      properties:
+        username:
+          type: string
+          example: somchai.p
+        password:
+          type: string
+          format: password
+          minLength: 8
+          example: P@ssw0rd123
+        hospital:
+          type: string
+          description: Hospital slug (must match an existing hospital)
+          example: hospital-a
+
+    StaffCreateResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+          example: somchai.p
+        hospital:
+          type: string
+          example: hospital-a
+        created_at:
+          type: string
+          format: date-time
+
+    StaffLoginRequest:
+      type: object
+      required: [username, password, hospital]
+      properties:
+        username:
+          type: string
+          example: somchai.p
+        password:
+          type: string
+          format: password
+          example: P@ssw0rd123
+        hospital:
+          type: string
+          example: hospital-a
+
+    StaffLoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          example: Bearer
+        expires_in:
+          type: integer
+          description: Seconds until expiry
+          example: 3600
+
+    PatientSearchRequest:
+      type: object
+      description: All fields optional; combined with AND; string fields match partial/case-insensitive.
+      properties:
+        national_id:
+          type: string
+          nullable: true
+          example: "1234567890123"
+        passport_id:
+          type: string
+          nullable: true
+        first_name:
+          type: string
+          nullable: true
+        middle_name:
+          type: string
+          nullable: true
+        last_name:
+          type: string
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+          example: "1990-05-12"
+        phone_number:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+
+    Patient:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        patient_hn:
+          type: string
+          nullable: true
+        national_id:
+          type: string
+          nullable: true
+        passport_id:
+          type: string
+          nullable: true
+        first_name_th:
+          type: string
+          nullable: true
+        middle_name_th:
+          type: string
+          nullable: true
+        last_name_th:
+          type: string
+          nullable: true
+        first_name_en:
+          type: string
+          nullable: true
+        middle_name_en:
+          type: string
+          nullable: true
+        last_name_en:
+          type: string
+          nullable: true
+        date_of_birth:
+          type: string
+          format: date
+          nullable: true
+        phone_number:
+          type: string
+          nullable: true
+        email:
+          type: string
+          nullable: true
+        gender:
+          type: string
+          nullable: true
+          example: F
+
+    PatientSearchResponse:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            $ref: "#/components/schemas/Patient"
+        count:
+          type: integer
