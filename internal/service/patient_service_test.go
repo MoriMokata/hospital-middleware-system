@@ -163,3 +163,46 @@ func TestPatientService_Search_InvalidDateOfBirth(t *testing.T) {
 		t.Fatalf("Search() error = %v, want *ValidationError", err)
 	}
 }
+
+func TestPatientService_Search_NoHISAdapterRegisteredFallsBackSilently(t *testing.T) {
+	hospitalA := domain.Hospital{ID: uuid.New(), Slug: "hospital-a", HISAdapterType: "unregistered_adapter"}
+	hospitals := &fakeHospitalRepo{bySlug: map[string]domain.Hospital{"hospital-a": hospitalA}}
+	patients := &fakePatientRepo{}
+	svc := NewPatientService(hospitals, patients, map[string]HISClientFactory{})
+
+	nationalID := "1234567890123"
+	results, err := svc.Search(context.Background(), hospitalA.ID.String(), SearchInput{NationalID: &nationalID})
+	if err != nil {
+		t.Fatalf("Search() error = %v, want no error when no HIS adapter is registered", err)
+	}
+	if len(results) != 0 {
+		t.Fatalf("Search() = %d results, want 0", len(results))
+	}
+}
+
+type failingUpsertPatientRepo struct{ fakePatientRepo }
+
+func (f *failingUpsertPatientRepo) Upsert(context.Context, domain.Patient) (domain.Patient, error) {
+	return domain.Patient{}, errors.New("db write failed")
+}
+
+func TestPatientService_Search_UpsertFailureIsSwallowed(t *testing.T) {
+	nationalID := "1234567890123"
+	hospitalA := domain.Hospital{ID: uuid.New(), Slug: "hospital-a", HISAdapterType: "fake_his"}
+	hospitals := &fakeHospitalRepo{bySlug: map[string]domain.Hospital{"hospital-a": hospitalA}}
+	patients := &failingUpsertPatientRepo{}
+	factories := map[string]HISClientFactory{
+		"fake_his": func(string) his.HISClient {
+			return &fakeHISClient{result: domain.Patient{NationalID: &nationalID}}
+		},
+	}
+	svc := NewPatientService(hospitals, patients, factories)
+
+	results, err := svc.Search(context.Background(), hospitalA.ID.String(), SearchInput{NationalID: &nationalID})
+	if err != nil {
+		t.Fatalf("Search() error = %v, want no error when the upsert-after-sync fails", err)
+	}
+	if len(results) != 0 {
+		t.Fatalf("Search() = %d results, want 0 (upsert failed, nothing to find locally)", len(results))
+	}
+}

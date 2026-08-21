@@ -135,6 +135,13 @@ func TestStaffService_CreateStaff_ValidationErrors(t *testing.T) {
 	}
 }
 
+func TestValidationError_Error(t *testing.T) {
+	err := &ValidationError{Msg: "username is required"}
+	if err.Error() != "username is required" {
+		t.Errorf("Error() = %q, want %q", err.Error(), "username is required")
+	}
+}
+
 func TestStaffService_Login_Success(t *testing.T) {
 	svc, _ := newTestStaffService()
 	ctx := context.Background()

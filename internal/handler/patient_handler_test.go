@@ -166,3 +166,62 @@ func TestPatientHandler_Search_InvalidDateOfBirth(t *testing.T) {
 	}
 	assertErrorCode(t, rec, "VALIDATION_ERROR")
 }
+
+func TestPatientHandler_Search_MalformedJSON(t *testing.T) {
+	hospitalA, hospitalB := newTestHospitals()
+	router := newTestPatientHandlerRouter(hospitalA, hospitalB, nil)
+
+	rec := performPatientSearch(router, "Bearer "+tokenFor(hospitalA.ID), `{not-json`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+	assertErrorCode(t, rec, "VALIDATION_ERROR")
+}
+
+func TestPatientHandler_Search_IncludesDateOfBirthInResponse(t *testing.T) {
+	hospitalA, hospitalB := newTestHospitals()
+	dob := time.Date(1990, time.May, 12, 0, 0, 0, 0, time.UTC)
+	router := newTestPatientHandlerRouter(hospitalA, hospitalB, []domain.Patient{
+		{HospitalID: hospitalA.ID, FirstNameEN: strp("Somsri"), DateOfBirth: &dob},
+	})
+
+	rec := performPatientSearch(router, "Bearer "+tokenFor(hospitalA.ID), `{}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusOK, rec.Body.String())
+	}
+
+	var body struct {
+		Results []struct {
+			DateOfBirth *string `json:"date_of_birth"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("invalid JSON response: %v", err)
+	}
+	if len(body.Results) != 1 || body.Results[0].DateOfBirth == nil || *body.Results[0].DateOfBirth != "1990-05-12" {
+		t.Fatalf("results = %+v, want date_of_birth = 1990-05-12", body.Results)
+	}
+}
+
+// TestPatientHandler_Search_WithoutAuthMiddleware exercises the handler's
+// own defensive 401 when hospital_id isn't in the context — a state that
+// shouldn't happen in production since the route is always registered
+// behind middleware.Auth, but the handler must not trust its absence.
+func TestPatientHandler_Search_WithoutAuthMiddleware(t *testing.T) {
+	hospitalA, hospitalB := newTestHospitals()
+	hospitals := &fakeHospitalRepo{bySlug: map[string]domain.Hospital{
+		"hospital-a": hospitalA,
+		"hospital-b": hospitalB,
+	}}
+	factories := map[string]service.HISClientFactory{"noop": func(string) his.HISClient { return noopHISClient{} }}
+	patientHandler := NewPatientHandler(service.NewPatientService(hospitals, &fakePatientRepo{}, factories))
+
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.POST("/patient/search", patientHandler.Search) // no Auth middleware
+
+	rec := performPatientSearch(router, "", `{}`)
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusUnauthorized, rec.Body.String())
+	}
+}

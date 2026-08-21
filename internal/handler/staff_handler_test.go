@@ -157,6 +157,26 @@ func TestStaffHandler_Create_PasswordTooShort(t *testing.T) {
 	assertErrorCode(t, rec, "VALIDATION_ERROR")
 }
 
+func TestStaffHandler_Create_MalformedJSON(t *testing.T) {
+	h := newTestStaffHandler()
+	rec := performCreateStaff(h, `{not-json`)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+	assertErrorCode(t, rec, "VALIDATION_ERROR")
+}
+
+func TestStaffHandler_Login_MalformedJSON(t *testing.T) {
+	h := newTestStaffHandler()
+	rec := performLogin(h, `{not-json`)
+
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d, body = %s", rec.Code, http.StatusBadRequest, rec.Body.String())
+	}
+	assertErrorCode(t, rec, "VALIDATION_ERROR")
+}
+
 func TestStaffHandler_Login_Success(t *testing.T) {
 	h := newTestStaffHandler()
 	performCreateStaff(h, `{"username":"somchai.p","password":"P@ssw0rd123","hospital":"hospital-a"}`)
